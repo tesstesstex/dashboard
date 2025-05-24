@@ -26,19 +26,19 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: package-lock.json # Updated path
+          cache-dependency-path: dashboard/package-lock.json # Project is in 'dashboard' subdirectory
 
       - name: Install dependencies
-        # working-directory: ./dashboard # Removed, assuming project is at repo root
+        working-directory: ./dashboard # Specify working directory for Next.js project
         run: npm install
 
       - name: Build project
-        # working-directory: ./dashboard # Removed
+        working-directory: ./dashboard # Specify working directory for Next.js project
         run: npm run build
         env:
           # NEXT_PUBLIC_BASE_PATH is automatically handled by Next.js if basePath is set in next.config.js
-          # NEXT_PUBLIC_BASE_PATH: /dashboard # This might be redundant
-          CI: true # Often used by build tools
+          # Forcing CI environment for some build tools
+          CI: true
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -46,7 +46,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out # Updated path, assuming 'out' is at repo root
+          path: ./dashboard/out # Path to the Next.js export output directory within 'dashboard' subdirectory
 
       - name: Deploy to GitHub Pages
         id: deployment
