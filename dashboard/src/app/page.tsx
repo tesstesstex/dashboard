@@ -158,7 +158,7 @@ export default function Home() {
               <p className="text-gray-500">表示するデータがありません。</p>
             )}
             {/* DataChartコンポーネントを追加 */}
-            {data.length > 0 && <DataChart data={data} />}
+            {data.length > 0 && <DataChart data={data} fileName={fileName} />}
           </div>
         )}
       </div>
