@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     unoptimized: true,    // Required for next export with next/image
+  },
+  env: {
+    NEXT_PUBLIC_BASE_PATH: '/dashboard', // Expose basePath to the client
   }
   /* config options here */
 };

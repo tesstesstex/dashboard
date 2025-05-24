@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // useEffect をインポート
 import FileUpload from '@/components/FileUpload';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import DataChart from '@/components/DataChart'; // DataChartコンポーネントをインポート
+
+// basePathを環境変数から取得、なければ空文字（開発時など）
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const SAMPLE_CSV_PATH = `${basePath}/sample_balance_sheet.csv`;
 
 // データ型を定義 (必要に応じて調整)
 type DataRow = { [key: string]: string | number };
@@ -13,7 +17,63 @@ export default function Home() {
   const [data, setData] = useState<DataRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // 初期読み込みのためtrueに
+
+  // 初期データ読み込みロジック
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(SAMPLE_CSV_PATH);
+        if (!response.ok) {
+          // 詳細なエラー情報を取得
+          const errorText = await response.text().catch(() => 'サーバーからエラー詳細を取得できませんでした。');
+          console.error(`Network response was not ok: ${response.status} ${response.statusText}. Server response: ${errorText}`);
+          throw new Error(`サンプルCSVの読み込みに失敗しました。サーバー応答: ${response.status} ${response.statusText}`);
+        }
+        const csvText = await response.text();
+        Papa.parse<DataRow>(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: true,
+          complete: (results: Papa.ParseResult<DataRow>) => {
+            if (results.errors && results.errors.length > 0) {
+              console.error("Error parsing sample CSV:", results.errors);
+              setError(`サンプルCSVのパース中にエラーが発生しました: ${results.errors[0].message}`);
+              setData([]);
+            } else {
+              setData(results.data);
+              setFileName('sample_balance_sheet.csv (初期データ)');
+            }
+            setIsLoading(false);
+          },
+          error: (err: Error, file?: File | string) => {
+            console.error("Error parsing sample CSV:", err, file);
+            const message = err.message || 'サンプルCSVのパース中に不明なエラーが発生しました。';
+            setError(`サンプルCSVのパース中にエラーが発生しました: ${message}`);
+            setIsLoading(false);
+            setData([]);
+          }
+        });
+      } catch (e: unknown) {
+        console.error("Error fetching or processing sample CSV:", e);
+        if (e instanceof Error) {
+          setError(`サンプルCSVの読み込み処理に失敗しました: ${e.message}`);
+        } else {
+          setError(`サンプルCSVの読み込み処理中に不明なエラーが発生しました。`);
+        }
+        setIsLoading(false);
+        setData([]);
+      }
+    };
+    // クライアントサイドでのみ実行
+    if (typeof window !== 'undefined') {
+      loadInitialData();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 空の依存配列でマウント時に一度だけ実行
+
 
   const handleFileUpload = async (file: File) => {
     setIsLoading(true);
@@ -26,12 +86,18 @@ export default function Home() {
         Papa.parse<DataRow>(file, {
           header: true,
           skipEmptyLines: true,
+          dynamicTyping: true,
           complete: (results: Papa.ParseResult<DataRow>) => {
-            setData(results.data);
+            if (results.errors && results.errors.length > 0) {
+              console.error("Error parsing uploaded CSV:", results.errors);
+              setError(`CSVパースエラー: ${results.errors[0].message}`);
+            } else {
+              setData(results.data);
+            }
             setIsLoading(false);
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          error: (err: any) => {
+          error: (err: Error, fileParam?: File) => { // fileParamとして名前変更
+            console.error("Error parsing uploaded CSV:", err, fileParam);
             const message = err.message || 'CSVパース中に不明なエラーが発生しました。';
             setError(`CSVパースエラー: ${message}`);
             setIsLoading(false);
@@ -43,14 +109,13 @@ export default function Home() {
           try {
             const arrayBuffer = e.target?.result;
             if (arrayBuffer && (typeof arrayBuffer === 'string' || arrayBuffer instanceof ArrayBuffer)) {
-              const workbook = XLSX.read(arrayBuffer, { type: 'array' }); // ESLint disableを削除 (不要なため)
+              const workbook = XLSX.read(arrayBuffer, { type: 'array' });
               const sheetName = workbook.SheetNames[0];
               const worksheet = workbook.Sheets[sheetName];
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]; // ESLint no-explicit-any を許容 (XLSXライブラリの型)
 
               if (jsonData.length > 0) {
-                const headers = jsonData[0].map(String); // ヘッダーを文字列に変換
+                const headers = jsonData[0].map(String);
                 const parsedData = jsonData.slice(1).map((row) => {
                   const rowData: DataRow = {};
                   headers.forEach((header, index) => {
@@ -64,9 +129,12 @@ export default function Home() {
               }
             }
             setIsLoading(false);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } catch (parseError: any) {
-            const message = parseError.message || 'Excelパース中に不明なエラーが発生しました。';
+          } catch (parseError: unknown) { // unknown型に変更
+            let message = 'Excelパース中に不明なエラーが発生しました。';
+            if (parseError instanceof Error) {
+                message = parseError.message;
+            }
+            console.error("Error parsing Excel:", parseError);
             setError(`Excelパースエラー: ${message}`);
             setIsLoading(false);
           }
@@ -80,9 +148,12 @@ export default function Home() {
         setError('サポートされていないファイル形式です。CSVまたはExcelファイルを選択してください。');
         setIsLoading(false);
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      const message = err.message || '処理中に不明なエラーが発生しました。';
+    } catch (err: unknown) { // unknown型に変更
+      let message = '処理中に不明なエラーが発生しました。';
+      if (err instanceof Error) {
+          message = err.message;
+      }
+      console.error("Error in handleFileUpload:", err);
       setError(`処理エラー: ${message}`);
       setIsLoading(false);
     }
