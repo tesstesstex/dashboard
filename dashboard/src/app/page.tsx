@@ -48,8 +48,8 @@ export default function Home() {
             }
             setIsLoading(false);
           },
-          error: (err: Error, file?: File | string) => {
-            console.error("Error parsing sample CSV:", err, file);
+          error: (err: Error) => { // 文字列パースの場合、file引数は通常不要
+            console.error("Error parsing sample CSV:", err);
             const message = err.message || 'サンプルCSVのパース中に不明なエラーが発生しました。';
             setError(`サンプルCSVのパース中にエラーが発生しました: ${message}`);
             setIsLoading(false);
@@ -71,8 +71,7 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       loadInitialData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 空の依存配列でマウント時に一度だけ実行
+  }, []); // 依存配列が空なので eslint-disable は不要
 
 
   const handleFileUpload = async (file: File) => {
@@ -96,10 +95,10 @@ export default function Home() {
             }
             setIsLoading(false);
           },
-          error: (err: Error, fileParam?: File) => { // fileParamとして名前変更
-            console.error("Error parsing uploaded CSV:", err, fileParam);
+          error: (err: Error) => { // file引数は通常不要、エラー対象のfileはスコープ内のfile変数を参照
+            console.error("Error parsing uploaded CSV:", err, "File being processed:", file.name); // file.nameでエラー対象ファイルを示す
             const message = err.message || 'CSVパース中に不明なエラーが発生しました。';
-            setError(`CSVパースエラー: ${message}`);
+            setError(`CSVパースエラー (${file.name}): ${message}`);
             setIsLoading(false);
           },
         });
@@ -112,7 +111,8 @@ export default function Home() {
               const workbook = XLSX.read(arrayBuffer, { type: 'array' });
               const sheetName = workbook.SheetNames[0];
               const worksheet = workbook.Sheets[sheetName];
-              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]; // ESLint no-explicit-any を許容 (XLSXライブラリの型)
+              // sheet_to_jsonの型をより具体的に (string | number の配列の配列と仮定)
+              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number)[][];
 
               if (jsonData.length > 0) {
                 const headers = jsonData[0].map(String);
