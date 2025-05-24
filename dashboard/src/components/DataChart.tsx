@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react'; // Reactをインポート
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, TooltipProps, LabelProps } from 'recharts'; // TooltipProps, LabelProps をインポート
+import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent'; // Tooltipの型をインポート
 
 type DataRow = { [key: string]: string | number };
 
@@ -28,7 +29,7 @@ const ITEM_KEYS = {
   NET_ASSETS: '純資産',
 };
 
-const VALUE_SUFFIX = '_value';
+// const VALUE_SUFFIX = '_value'; // 未使用のため削除
 
 interface DetailItem {
   name: string;
@@ -43,7 +44,8 @@ interface ChartDataItem {
   [ITEM_KEYS.CURRENT_LIABILITIES]?: number;
   [ITEM_KEYS.FIXED_LIABILITIES]?: number;
   [ITEM_KEYS.NET_ASSETS]?: number;
-  [key: string]: any;
+  // インデックスシグネチャをより具体的に (ESLint no-explicit-any対策)
+  [key: string]: string | number | undefined | DetailItem[] | ChartDataItem[] | boolean;
   currentAssetDetails?: DetailItem[];
   fixedAssetDetails?: DetailItem[];
   currentLiabilityDetails?: DetailItem[];
@@ -109,10 +111,6 @@ export default function DataChart({ data, fileName }: DataChartProps) {
         if (row.name === ITEM_KEYS.FIXED_LIABILITIES) { currentMajorSection = 'liabilities'; currentMinorSection = 'fixed'; return; }
         if (row.name === ITEM_KEYS.NET_ASSETS || row.name === '株主資本' || row.name === '純資産合計' || row.name === '純資産') { currentMajorSection = 'equity'; currentMinorSection = 'unknown'; return; }
 
-        // 0円の項目も内訳としてリストアップする（ただしグラフ上のラベルは非表示のまま）
-        // if (row.value === 0 && currentMajorSection !== 'equity') return;
-
-
         const percentageOfTotalAssets = totalAssets_val > 0 ? parseFloat(((row.value / totalAssets_val) * 100).toFixed(1)) : 0;
         const percentageOfTotalLiabilitiesAndEquity = totalLiabilitiesAndEquity_val > 0 ? parseFloat(((row.value / totalLiabilitiesAndEquity_val) * 100).toFixed(1)) : 0;
 
@@ -162,11 +160,11 @@ export default function DataChart({ data, fileName }: DataChartProps) {
     return <p className="mt-6 text-center text-gray-500">グラフを表示するためのデータが不足しているか、形式が正しくありません。</p>;
   }
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
     if (active && payload && payload.length) {
-      const dataEntry = payload[0].payload as ChartDataItem;
+      const dataEntry = payload[0].payload as ChartDataItem; // payload[0].payload は ChartDataItem と想定
       const category = dataEntry.category;
-      let sections: React.ReactNode[] = [];
+      const sections: React.ReactNode[] = []; // prefer-constエラーのためconstに変更
 
       if (category === '資産') {
         if (dataEntry.currentAssetDetails && dataEntry.currentAssetDetails.length > 0) {
@@ -244,12 +242,27 @@ export default function DataChart({ data, fileName }: DataChartProps) {
     return null;
   };
 
-  const renderCustomizedLabel = (props: any) => {
-    const { x, y, width, height, value, name } = props;
-    if (height < 15 || value === 0) return null;
+  const renderCustomizedLabel = (props: LabelProps) => {
+    const { x: xProp, y: yProp, width: widthProp, height: heightProp, value, name } = props;
+
+    // valueが数値であることを確認
+    const numericValue = typeof value === 'number' ? value : (typeof value === 'string' ? parseFloat(value) : 0);
+
+    // x, y, width, heightが数値であることを確認し、数値でなければデフォルト値またはnullを返す
+    const x = typeof xProp === 'number' ? xProp : 0;
+    const y = typeof yProp === 'number' ? yProp : 0;
+    const width = typeof widthProp === 'number' ? widthProp : 0;
+    const height = typeof heightProp === 'number' ? heightProp : 0;
+
+    if (xProp === undefined || yProp === undefined || widthProp === undefined || heightProp === undefined) {
+      return null; // 必要な座標情報がなければ何も描画しない
+    }
+
+    if (height < 15 || numericValue === 0) return null;
+
     return (
       <text x={x + width / 2} y={y + height / 2} fill="#333" textAnchor="middle" dominantBaseline="middle" fontSize="10">
-        {name} ({value}%)
+        {name} ({numericValue.toFixed(1)}%) {/* パーセンテージ表示を小数点1桁に統一 */}
       </text>
     );
   };

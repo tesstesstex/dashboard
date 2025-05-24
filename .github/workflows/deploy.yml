@@ -9,43 +9,45 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions: # Required for actions/deploy-pages
+    permissions:
       contents: read
       pages: write
       id-token: write
-    environment: # Optional: define environment if you have specific settings
+    environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # Updated to v4
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4 # Updated to v4
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm' # Enable caching for npm
-          cache-dependency-path: dashboard/package-lock.json # Path to package-lock.json
+          cache: 'npm'
+          cache-dependency-path: package-lock.json # Updated path
 
       - name: Install dependencies
-        working-directory: ./dashboard # Specify working directory
+        # working-directory: ./dashboard # Removed, assuming project is at repo root
         run: npm install
 
       - name: Build project
-        working-directory: ./dashboard # Specify working directory
+        # working-directory: ./dashboard # Removed
         run: npm run build
-        env: # Ensure basePath is available during build if needed by the app
-          NEXT_PUBLIC_BASE_PATH: /finance-dashboard
+        env:
+          # NEXT_PUBLIC_BASE_PATH is automatically handled by Next.js if basePath is set in next.config.js
+          # NEXT_PUBLIC_BASE_PATH: /dashboard # This might be redundant
+          CI: true # Often used by build tools
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4 # Updated to v4
+        uses: actions/configure-pages@v4
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3 # Updated to v3
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dashboard/out # Path to the Next.js export output directory
+          path: ./out # Updated path, assuming 'out' is at repo root
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 # Updated to v4
+        uses: actions/deploy-pages@v4
