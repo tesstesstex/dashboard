@@ -114,14 +114,36 @@ export default function DataChart({ data, fileName }: DataChartProps) {
     return <p className="mt-6 text-center text-gray-500">グラフを表示するためのデータが不足しているか、形式が正しくありません。</p>;
   }
 
-  const tooltipFormatter = (value: number, name: string, props: any) => {
-    const actualValueKey = `${name}${VALUE_SUFFIX}`;
-    const actualValue = props.payload[actualValueKey];
-    const percentage = value;
-    if (actualValue !== undefined) {
-      return [`${actualValue.toLocaleString()} (百万円) - ${percentage}%`, name];
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const dataEntry = payload[0].payload; // 現在のカテゴリのデータオブジェクト
+      const category = dataEntry.category;
+
+      const itemsToShow = [];
+      // payloadにはそのX軸カテゴリで値を持つBarの情報が含まれる
+      // (valueがパーセンテージ、nameが勘定科目名、fillが色、payload.payloadが元のデータオブジェクト)
+      for (const p of payload) {
+        if (p.value > 0) { // p.value はパーセンテージ
+           const actualValue = dataEntry[`${p.name}${VALUE_SUFFIX}`];
+           if (actualValue !== undefined) { // 実数値が存在する場合のみ表示
+              itemsToShow.push({ name: p.name, value: p.value, actual: actualValue, color: p.fill });
+           }
+        }
+      }
+      // 表示順をpayloadの順（=Barの定義順）ではなく、意味のある順（例：資産なら流動->固定）にしたい場合はここでソート
+
+      return (
+        <div className="bg-white p-3 border border-gray-300 shadow-lg rounded-md">
+          <p className="font-semibold text-gray-700 mb-2">{`${label}`}</p>
+          {itemsToShow.map((item, index) => (
+            <p key={index} style={{ color: item.color }} className="text-sm">
+              {`${item.name}: ${item.actual?.toLocaleString()} (百万円) - ${item.value}%`}
+            </p>
+          ))}
+        </div>
+      );
     }
-    return [`${percentage}%`, name];
+    return null;
   };
 
   // LabelList用のカスタムコンポーネント (値が小さすぎる場合は表示しないなど調整可能)
@@ -162,7 +184,7 @@ export default function DataChart({ data, fileName }: DataChartProps) {
                 tickLine={false}
                 domain={[0, 100]}
               />
-              <Tooltip formatter={tooltipFormatter} />
+              <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{paddingTop: "10px"}} />
 
               {/* 資産項目 (stackId="a" で資産カテゴリの時のみ描画) */}
