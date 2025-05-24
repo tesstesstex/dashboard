@@ -1,0 +1,51 @@
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Or your default branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions: # Required for actions/deploy-pages
+      contents: read
+      pages: write
+      id-token: write
+    environment: # Optional: define environment if you have specific settings
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Updated to v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4 # Updated to v4
+        with:
+          node-version: '18'
+          cache: 'npm' # Enable caching for npm
+          cache-dependency-path: dashboard/package-lock.json # Path to package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./dashboard # Specify working directory
+        run: npm install
+
+      - name: Build project
+        working-directory: ./dashboard # Specify working directory
+        run: npm run build
+        env: # Ensure basePath is available during build if needed by the app
+          NEXT_PUBLIC_BASE_PATH: /finance-dashboard
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4 # Updated to v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3 # Updated to v3
+        with:
+          path: ./dashboard/out # Path to the Next.js export output directory
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # Updated to v4
