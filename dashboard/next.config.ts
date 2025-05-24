@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'export',
-  // GitHub Pages URL will be https://<username>.github.io/finance-dashboard/
-  // So, basePath and assetPrefix should be /finance-dashboard
-  assetPrefix: '/finance-dashboard/',
-  basePath: '/finance-dashboard',
+  // GitHub Pages URL will be https://<username>.github.io/dashboard/
+  // So, basePath and assetPrefix should be /dashboard
+  assetPrefix: '/dashboard/',
+  basePath: '/dashboard',
   reactStrictMode: true,
   images: {
     unoptimized: true,    // Required for next export with next/image
